@@ -61,7 +61,7 @@ jobs:
       - name: Push Docker Image to GitHub Packages
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          docker tag auth-forge-keycloak:${{ env.version }} ghcr.io/${{ github.repository }}/auth-forge-keycloak:${{ env.version }}
+          docker tag auth-forge-keycloak:${{ env.version }} ghcr.io/auth-forge/auth-forge-keycloak:${{ env.version }}
           docker push ghcr.io/auth-forge/auth-forge-keycloak:${{ env.version }}
 
       - name: Push Version Tag
