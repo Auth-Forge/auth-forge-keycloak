@@ -36,12 +36,12 @@ jobs:
           # Increment the patch version
           new_patch=$((patch+1))
 
-          # Default version string (feature or develop branch, incremented and with -SNAPSHOT)
-          new_version="${major}.${minor}.${new_patch}-SNAPSHOT"
+          # Default version string (feature or develop branch, incremented)
+          new_version="${major}.${minor}.${new_patch}"
 
           # Check for branch type and modify the version accordingly
           if [[ $GITHUB_REF == refs/heads/release/* ]]; then
-            # For release branches, just increment the version and remove -SNAPSHOT
+            # For release branches, just increment the version and remove
             new_version="${major}.${minor}.${new_patch}"
           fi
 
@@ -60,9 +60,10 @@ jobs:
 
       - name: Push Docker Image to GitHub Packages
         run: |
+          REPO_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           docker tag auth-forge-keycloak:${{ env.version }} ghcr.io/${{ github.repository }}/auth-forge-keycloak:${{ env.version }}
-          docker push ghcr.io/${{ github.repository }}/auth-forge-keycloak:${{ env.version }}
+          docker push ghcr.io/${{ REPO_NAME }}/auth-forge-keycloak:${{ env.version }}
 
       - name: Push Version Tag
         if: github.ref == 'refs/heads/release/*'
