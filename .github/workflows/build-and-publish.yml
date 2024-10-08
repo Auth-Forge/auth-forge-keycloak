@@ -1,0 +1,73 @@
+name: Build and Publish auth-forge-keycloak
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/*'
+      - 'feature/*'
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get latest release version
+        id: get_version
+        run: |
+          # Check if there are any tags
+          if [ $(git tag | wc -l) -eq 0 ]; then
+            # If no tags are found, start at version 0.0.0
+            latest_tag="0.0.0"
+          else
+            # Get the latest tag that follows SemVer
+            latest_tag=$(git describe --tags $(git rev-list --tags --max-count=1))
+          fi
+          echo "Latest tag: $latest_tag"
+
+          # Extract version numbers from the tag
+          IFS='.' read -r major minor patch <<<"${latest_tag//v/}"
+          echo "Major: $major, Minor: $minor, Patch: $patch"
+
+          # Increment the patch version
+          new_patch=$((patch+1))
+
+          # Default version string (feature or develop branch, incremented and with -SNAPSHOT)
+          new_version="${major}.${minor}.${new_patch}-SNAPSHOT"
+
+          # Check for branch type and modify the version accordingly
+          if [[ $GITHUB_REF == refs/heads/release/* ]]; then
+            # For release branches, just increment the version and remove -SNAPSHOT
+            new_version="${major}.${minor}.${new_patch}"
+          fi
+
+          echo "New Version: $new_version"
+          echo "version=$new_version" >> $GITHUB_ENV
+
+      - name: Create GitHub token file
+        run: echo "${{ secrets.AUTH_FORGE_TOKEN }}" > github_token
+
+      - name: Build Docker Image
+        run: |
+          docker build \
+          --secret id=github_token,src=./github_token \
+          --build-arg GITHUB_USERNAME=${{ github.actor }} \
+          -t auth-forge-keycloak:${{ env.version }} .
+
+      - name: Push Docker Image to GitHub Packages
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker tag auth-forge-keycloak:${{ env.version }} ghcr.io/${{ github.repository }}/auth-forge-keycloak:${{ env.version }}
+          docker push ghcr.io/${{ github.repository }}/auth-forge-keycloak:${{ env.version }}
+
+      - name: Push Version Tag
+        if: github.ref == 'refs/heads/release/*'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ env.version }}" -m "Release version v${{ env.version }}"
+          git push origin "v${{ env.version }}"
